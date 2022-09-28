@@ -5,9 +5,9 @@
 #include <nRF24L01.h> //transeiver
 #include <RF24.h> // transceiver
 #include <BMP180.h> // bmp180 lib https://github.com/enjoyneering/BMP180
-#include "<MPU6050_6Axis_MotionApps20.h>" // mpu6050 https://github.com/ElectronicCats/mpu6050
-#include "<I2Cdev.h>" // mpu6050
-#include "<Wire.h>" // mpu6050 / bmp180
+#include <MPU6050_6Axis_MotionApps20.h> // mpu6050 https://github.com/ElectronicCats/mpu6050
+#include <I2Cdev.h> // mpu6050
+#include <Wire.h> // mpu6050 / bmp180
 struct wait {
     long currentMillis;
     // gps
@@ -30,6 +30,11 @@ struct gpsData {
 };
 struct gyroData {
 
+};
+struct bmpData {
+    float groundPressure = 0.0;
+    float lastPressure = 0.0;
+    float lastAltitude = 0.0;
 };
 struct joysticksGeneric {
     int x1;
@@ -69,12 +74,25 @@ void updateGPS() {
         logLine("DEBUG: No new GPS data.");
     }
 }
+
+float getAccuratePressure(int n) {
+    for (int i=0; i < 3; i++) {
+        bmp.getPressure();
+    }
+    float accuratePressure = 0.0;
+    for (int i=0; i < n; i++) {
+        accuratePressure += bmp.getPressure();
+    }
+    accuratePressure /= 20.0;
+    return accuratePressure;
+}
 void updateAltitude() { // TODO: work on this lol
     // https://www.mide.com/air-pressure-at-altitude-calculator
-    float temperatureRatio = -35076.92308;
-    float exponent = 0.1902632365;
-    float pressure = bmp.getPressure();
-    altitude = temperatureRatio * (pow(pressure/101325, exponent)-1)
+    float R = 287.0;
+    float g = 9.80665;
+    float virtualTemp = 0.0; // TODO: fill in
+    float currentPressure = getAccuratePressure(5);
+    altitude = ((R * virtualTemp) / g) * log(bmpData.groundPressure / currentPressure);
 }
 void updateGyro() {
     // TODO: implement
@@ -106,6 +124,7 @@ void setup() {
         logLine("FATAL: BMP180 failed to initialize!!!");
         while(1) {}
     }
+    bmpData.groundPressure = getAccuratePressure(20);
     radio.setPALevel(RF24_PA_LOW);
     radio.openWritingPipe("12345"); // address
     radio.stopListening();
