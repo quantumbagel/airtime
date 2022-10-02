@@ -8,6 +8,7 @@
 #include <MPU6050_6Axis_MotionApps20.h> // mpu6050 https://github.com/ElectronicCats/mpu6050
 #include <I2Cdev.h> // mpu6050
 #include <Wire.h> // mpu6050 / bmp180
+#include <SD.h> // sd
 const float maxIncrease = 1.1;
 const float maxDecrease = 0.9;
 struct vectors {
@@ -31,6 +32,9 @@ struct wait {
     // bmp180 doesn't need this
     long lastRF24Update;
     int RF24WaitMillis = 100;
+};
+struct sdData {
+    File dataFile;
 };
 struct gpsData {
     float takeoffLatitude;
@@ -73,9 +77,16 @@ RF24 radio(7, 8); // CE, CSN (transceiver)
 Adafruit_BMP085 bmp;
 
 void logLine(String line) {
-    // TODO: implement
+    sdData.dataFile = SD.open('datalog.txt');
+    if (sdData.dataFile) {
+        sdData.dataFile.println(line);
+        sdData.dataFile.close();
+    } else {
+        Serial.println("logLine ERROR!!!!!!! STOP THIS PROGRAM NNNNNNNNOOOOOOOOWWWWWWW");
+    }
+
 }
-logLine("AIRTIME - A simple flight controller from quantumbagel");
+
 // update functions
 void updateGPS() {
     if nss.available() {
@@ -219,7 +230,7 @@ void updateMotors() {
      * then add more vectors to counteract this (don't know how strong tho)
      */
     if (useMotors) {
-
+        // use motors
     } else {
         logLine("motors not triggered.")
     }
@@ -235,7 +246,7 @@ void updateRF24() {
         floatMapJoystick(joysticks.x2, &joystickPositions.x2);
         floatMapJoystick(joysticks.y1, &joystickPositions.y1);
         floatMapJoystick(joysticks.y2, &joystickPositions.y2);
-        logLine("DEBUG: succesfully updated joysticks!");
+        logLine("DEBUG: successfully updated joysticks!");
         updateMotors();
     } else {
         logLine("DEBUG: No new joystick updates.");
@@ -244,6 +255,12 @@ void updateRF24() {
 
 // setup
 void setup() {
+    if (!(SD.begin(10))) {
+        Serial.println("ERRR");
+        while(true);
+    }
+    logLine("AIRTIME - A simple flight controller from quantumbagel");
+    logLine("Now starting...");
     if (!(radio.begin())) {
         logLine("FATAL: nRF24L01+ failed to initialize!!!");
         while(1) {}
